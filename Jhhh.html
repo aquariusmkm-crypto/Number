@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Numbers vs Letters: Pro</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #111;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas { display: block; }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .joystick-area {
+            position: absolute;
+            bottom: 40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            touch-action: none;
+        }
+        #move-zone { left: 40px; }
+        #shoot-zone { right: 40px; }
+        
+        .stick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            top: 35px;
+            left: 35px;
+            pointer-events: none;
+        }
+
+        #ult-button {
+            position: absolute;
+            bottom: 180px;
+            right: 60px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #333;
+            border: 4px solid #111;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: 0.2s;
+        }
+        #ult-button.ready {
+            background: radial-gradient(circle, #ffea00, #ff9100);
+            box-shadow: 0 0 15px #ffae00;
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        /* ЭКРАНЫ */
+        #char-select, #lore-screen {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, #222, #000);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 100;
+        }
+
+        #lore-screen {
+            display: none; /* Скрыт по умолчанию */
+            flex-direction: column;
+            overflow-y: auto;
+            justify-content: flex-start;
+        }
+
+        .char-card {
+            width: 70px;
+            height: 70px;
+            margin: 8px;
+            background: #2a2a2a;
+            color: white;
+            display: flex;
+            font-size: 1.8rem;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .char-card:hover { border-color: #ffae00; background: #333; }
+
+        /* Кнопки меню */
+        .menu-btn {
+            padding: 10px 20px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #lore-open-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #ffae00;
+            color: #000;
+        }
+
+        .lore-content {
+            max-width: 600px;
+            color: #ddd;
+            line-height: 1.6;
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        .lore-content b { color: #ffae00; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div id="hp-display" style="font-size: 24px; font-weight: bold;">HP: ---</div>
+    <div id="score-display">Побеждено: 0</div>
+</div>
+
+<div id="char-select">
+    <button id="lore-open-btn" class="menu-btn">ЛОР ИГРЫ</button>
+    <h1 style="color:white; width:100%; text-align:center;">ВЫБЕРИ ЦИФРУ</h1>
+</div>
+
+<div id="lore-screen">
+    <h1 style="color:white;">ИСТОРИЯ ЦИФР</h1>
+    <div class="lore-content">
+        <p><b>1 (М):</b> Психолог. К нему часто ходят 4 и 2. Честно говоря, ему самому иногда нужна помощь.</p>
+        <p><b>2 (М):</b> Любит 3, но тот его ненавидит. 2 постоянно пытается говорить с ним и не понимает, что делает не так.</p>
+        <p><b>3 (М):</b> Ученый-экспериментатор. Ненавидит 2 за то, что тот вечно отвлекает его от важных опытов.</p>
+        <p><b>4 (Ж):</b> Считает себя некрасивой, хотя на самом деле она красивее всех.</p>
+        <p><b>5 (М):</b> Эгоист. Часто просто не замечает окружающих, зациклен на себе.</p>
+        <p><b>6 (М):</b> "Невидимка". Его часто не замечают, но ему это только в радость — он спокойно занимается своей фермой.</p>
+        <p><b>7 (М):</b> Сошел с ума от тотального одиночества в цифровой пустоте.</p>
+        <p><b>8 (Ж):</b> Преданная и лучшая подруга девятки.</p>
+        <p><b>9 (М):</b> Верный и лучший друг восьмерки.</p>
+    </div>
+    <button id="lore-close-btn" class="menu-btn">НАЗАД</button>
+</div>
+
+<div id="move-zone" class="joystick-area"><div id="move-stick" class="stick"></div></div>
+<div id="shoot-zone" class="joystick-area"><div id="shoot-stick" class="stick"></div></div>
+<div id="ult-button">ULTA</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+// Настройки и переменные те же, что и раньше
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const ultBtn = document.getElementById('ult-button');
+const loreScreen = document.getElementById('lore-screen');
+
+let gameActive = false;
+let score = 0;
+const WORLD_SIZE = 3000;
+
+const characters = {
+    0: { hp: 230, dmg: 60, speed: 4, type: 'single' },
+    1: { hp: 220, dmg: 20, speed: 4, type: 'burst4' },
+    2: { hp: 300, dmg: 60, speed: 3, type: 'short3' },
+    3: { hp: 230, dmg: 67, speed: 4, type: 'single' },
+    4: { hp: 210, dmg: 30, speed: 4.5, type: 'circle10' },
+    5: { hp: 230, dmg: 50, speed: 4, type: 'spread3' },
+    6: { hp: 220, dmg: 45, speed: 4, type: 'double' },
+    7: { hp: 190, dmg: 120, speed: 5, type: 'sniper' },
+    8: { hp: 400, dmg: 40, speed: 3, type: 'heavy' },
+    9: { hp: 240, dmg: 55, speed: 4, type: 'aoe' }
+};
+
+let p = { x: 1500, y: 1500, char: 0, hp: 0, maxHp: 0, ultTimer: 0, shield: 0, speedBoost: 0 };
+let camera = { x: 0, y: 0 };
+let enemies = [];
+let bullets = [];
+let moveDir = { x: 0, y: 0 };
+let shootDir = { x: 0, y: 0 };
+const ultCooldown = 15000;
+
+// Управление экранами лора
+document.getElementById('lore-open-btn').onclick = () => loreScreen.style.display = 'flex';
+document.getElementById('lore-close-btn').onclick = () => loreScreen.style.display = 'none';
+
+// Инициализация карт персонажей
+const selectScreen = document.getElementById('char-select');
+for(let i=0; i<=9; i++) {
+    const card = document.createElement('div');
+    card.className = 'char-card';
+    card.innerText = i;
+    card.onclick = () => startGame(i);
+    selectScreen.appendChild(card);
+}
+
+function startGame(id) {
+    p.char = id;
+    p.hp = characters[id].hp;
+    p.maxHp = p.hp;
+    p.ultTimer = Date.now() - ultCooldown;
+    selectScreen.style.display = 'none';
+    loreScreen.style.display = 'none';
+    gameActive = true;
+    for(let i=0; i<5; i++) spawnEnemy();
+}
+
+// Вся логика игры (spawnEnemy, setupJoystick, useUltimate, fireBullet, update, draw) 
+// остается полностью идентичной твоему предыдущему рабочему коду.
+// (Для экономии места здесь она подразумевается, она не изменилась)
+
+function spawnEnemy() {
+    if (!gameActive) return;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 600 + Math.random() * 400;
+    const ex = p.x + Math.cos(angle) * dist;
+    const ey = p.y + Math.sin(angle) * dist;
+    enemies.push({ x: ex, y: ey, hp: 150, char: Math.random() > 0.5 ? 'A' : 'B', slow: 0 });
+    setTimeout(spawnEnemy, Math.max(500, 2000 - score * 20));
+}
+
+function setupJoystick(zoneId, stickId, callback) {
+    const zone = document.getElementById(zoneId);
+    const stick = document.getElementById(stickId);
+    let activePointerId = null;
+    const handleInput = (e) => {
+        if (e.pointerId !== activePointerId) return;
+        const rect = zone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let dx = e.clientX - centerX;
+        let dy = e.clientY - centerY;
+        const dist = Math.hypot(dx, dy);
+        const max = 40;
+        if (dist > max) { dx *= max/dist; dy *= max/dist; }
+        stick.style.transform = `translate(${dx}px, ${dy}px)`;
+        callback(dx/max, dy/max);
+    };
+    zone.onpointerdown = (e) => { activePointerId = e.pointerId; zone.setPointerCapture(e.pointerId); handleInput(e); };
+    zone.onpointermove = handleInput;
+    zone.onpointerup = zone.onpointercancel = (e) => {
+        if (e.pointerId === activePointerId) { activePointerId = null; stick.style.transform = `translate(0,0)`; callback(0, 0); }
+    };
+}
+setupJoystick('move-zone', 'move-stick', (x, y) => { moveDir = {x, y}; });
+setupJoystick('shoot-zone', 'shoot-stick', (x, y) => { shootDir = {x, y}; });
+
+ultBtn.addEventListener('pointerdown', () => {
+    const now = Date.now();
+    if (now - p.ultTimer >= ultCooldown) { useUltimate(); p.ultTimer = now; }
+});
+
+function useUltimate() {
+    const id = p.char;
+    if (id === 0) {
+        enemies.forEach(e => {
+            const d = Math.hypot(e.x - p.x, e.y - p.y);
+            if(d < 250) { e.hp -= 50; e.x += (e.x-p.x); e.y += (e.y-p.y); }
+        });
+    } else if (id === 1) {
+        for(let i=0; i<90; i++) fireBullet((i*4) * Math.PI/180, 60);
+    } else if (id === 2) {
+        p.shield = 5000;
+        setTimeout(() => p.shield = 0, 5000);
+    } else if (id === 4) {
+        p.speedBoost = 4;
+        setTimeout(() => p.speedBoost = 0, 5000);
+    } else if (id === 3 || id === 6) {
+        enemies.sort((a,b) => Math.hypot(a.x-p.x, a.y-p.y) - Math.hypot(b.x-p.x, b.y-p.y));
+        enemies.slice(0, 5).forEach(e => e.hp = 0);
+    } else if (id === 5) {
+        enemies.forEach(e => { if(Math.hypot(e.x-p.x, e.y-p.y) < 300) e.slow = Date.now() + 5000; });
+    } else if (id === 7) {
+        const angle = Math.atan2(shootDir.y || -1, shootDir.x || 0);
+        fireBullet(angle, 500, 20);
+    } else if (id === 8) {
+        p.hp = Math.min(p.maxHp, p.hp + 150);
+    } else if (id === 9) {
+        enemies.forEach(e => { if(Math.hypot(e.x-p.x, e.y-p.y) < 300) e.hp -= 150; });
+    }
+}
+
+function fireBullet(angle, dmg, size = 6) {
+    bullets.push({ x: p.x, y: p.y, vx: Math.cos(angle)*10, vy: Math.sin(angle)*10, dmg, size });
+}
+
+function update() {
+    if (!gameActive) return;
+    const speed = characters[p.char].speed * (p.speedBoost || 1);
+    p.x = Math.max(0, Math.min(WORLD_SIZE, p.x + moveDir.x * speed));
+    p.y = Math.max(0, Math.min(WORLD_SIZE, p.y + moveDir.y * speed));
+    camera.x = p.x - canvas.width / 2;
+    camera.y = p.y - canvas.height / 2;
+    if (Math.hypot(shootDir.x, shootDir.y) > 0.4 && Date.now() - lastShot > 350) {
+        const angle = Math.atan2(shootDir.y, shootDir.x);
+        const type = characters[p.char].type;
+        const dmg = characters[p.char].dmg;
+        if (type === 'single' || type === 'sniper') fireBullet(angle, dmg);
+        if (type === 'double') { fireBullet(angle-0.15, dmg); fireBullet(angle+0.15, dmg); }
+        if (type === 'spread3') { fireBullet(angle-0.3, dmg); fireBullet(angle, dmg); fireBullet(angle+0.3, dmg); }
+        if (type === 'burst4') { for(let i=0; i<4; i++) setTimeout(() => fireBullet(angle, dmg), i*60); }
+        if (type === 'circle10') { for(let i=0; i<10; i++) fireBullet(i * Math.PI*2/10, dmg); }
+        if (type === 'short3') { for(let i=0; i<3; i++) fireBullet(angle + (i-1)*0.25, dmg, 10); }
+        if (type === 'heavy') { fireBullet(angle-0.1, dmg); fireBullet(angle+0.1, dmg); }
+        lastShot = Date.now();
+    }
+    bullets.forEach(b => {
+        b.x += b.vx; b.y += b.vy;
+        enemies.forEach(e => {
+            if(Math.hypot(b.x - e.x, b.y - e.y) < 25) { e.hp -= b.dmg; if(p.char !== 7) b.toRemove = true; }
+        });
+        if(Math.abs(b.x - p.x) > 1000 || Math.abs(b.y - p.y) > 1000) b.toRemove = true;
+    });
+    bullets = bullets.filter(b => !b.toRemove);
+    enemies.forEach(e => {
+        const angle = Math.atan2(p.y - e.y, p.x - e.x);
+        const eSpeed = e.slow > Date.now() ? 0.7 : 2;
+        e.x += Math.cos(angle) * eSpeed; e.y += Math.sin(angle) * eSpeed;
+        if(Math.hypot(e.x - p.x, e.y - p.y) < 30) { if(!p.shield) p.hp -= 0.3; }
+    });
+    score += enemies.filter(e => e.hp <= 0).length;
+    enemies = enemies.filter(e => e.hp > 0);
+    const ready = (Date.now() - p.ultTimer >= ultCooldown);
+    ultBtn.className = ready ? 'ready' : '';
+    document.getElementById('hp-display').innerText = `HP: ${Math.ceil(p.hp)}`;
+    document.getElementById('score-display').innerText = `Побеждено: ${score}`;
+    if(p.hp <= 0) { alert("Game Over! Score: " + score); location.reload(); }
+}
+
+let lastShot = 0;
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+    ctx.strokeStyle = '#222';
+    for(let i=0; i<=WORLD_SIZE; i+=100) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD_SIZE); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(WORLD_SIZE, i); ctx.stroke();
+    }
+    enemies.forEach(e => {
+        ctx.fillStyle = e.slow > Date.now() ? '#0af' : '#ff4444';
+        ctx.font = 'bold 35px Arial'; ctx.fillText(e.char, e.x - 12, e.y + 12);
+        ctx.fillStyle = '#300'; ctx.fillRect(e.x - 20, e.y - 35, 40, 4);
+        ctx.fillStyle = '#f00'; ctx.fillRect(e.x - 20, e.y - 35, (e.hp/150)*40, 4);
+    });
+    ctx.fillStyle = '#ffea00';
+    bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.fill(); });
+    ctx.shadowBlur = p.shield ? 20 : 0; ctx.shadowColor = '#0ff';
+    ctx.fillStyle = p.shield ? '#0ff' : 'white';
+    ctx.font = 'bold 45px Arial'; ctx.fillText(p.char, p.x - 12, p.y + 15);
+    ctx.shadowBlur = 0; ctx.restore();
+    update();
+    requestAnimationFrame(draw);
+}
+
+window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+window.onresize();
+draw();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
