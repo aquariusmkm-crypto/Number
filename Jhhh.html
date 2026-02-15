@@ -87,7 +87,7 @@
         }
 
         #lore-screen {
-            display: none; /* Скрыт по умолчанию */
+            display: none;
             flex-direction: column;
             overflow-y: auto;
             justify-content: flex-start;
@@ -109,7 +109,6 @@
         }
         .char-card:hover { border-color: #ffae00; background: #333; }
 
-        /* Кнопки меню */
         .menu-btn {
             padding: 10px 20px;
             background: #444;
@@ -174,7 +173,6 @@
 <canvas id="gameCanvas"></canvas>
 
 <script>
-// Настройки и переменные те же, что и раньше
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const ultBtn = document.getElementById('ult-button');
@@ -204,12 +202,11 @@ let bullets = [];
 let moveDir = { x: 0, y: 0 };
 let shootDir = { x: 0, y: 0 };
 const ultCooldown = 15000;
+let lastShot = 0;
 
-// Управление экранами лора
 document.getElementById('lore-open-btn').onclick = () => loreScreen.style.display = 'flex';
 document.getElementById('lore-close-btn').onclick = () => loreScreen.style.display = 'none';
 
-// Инициализация карт персонажей
 const selectScreen = document.getElementById('char-select');
 for(let i=0; i<=9; i++) {
     const card = document.createElement('div');
@@ -230,17 +227,25 @@ function startGame(id) {
     for(let i=0; i<5; i++) spawnEnemy();
 }
 
-// Вся логика игры (spawnEnemy, setupJoystick, useUltimate, fireBullet, update, draw) 
-// остается полностью идентичной твоему предыдущему рабочему коду.
-// (Для экономии места здесь она подразумевается, она не изменилась)
-
 function spawnEnemy() {
     if (!gameActive) return;
     const angle = Math.random() * Math.PI * 2;
     const dist = 600 + Math.random() * 400;
     const ex = p.x + Math.cos(angle) * dist;
     const ey = p.y + Math.sin(angle) * dist;
-    enemies.push({ x: ex, y: ey, hp: 150, char: Math.random() > 0.5 ? 'A' : 'B', slow: 0 });
+    
+    // ЛОГИКА ВРАГА С:
+    const rand = Math.random();
+    let char, hp;
+    if (rand < 0.2) { // 20% шанс на врага С
+        char = 'C';
+        hp = 200;
+    } else {
+        char = Math.random() > 0.5 ? 'A' : 'B';
+        hp = 150;
+    }
+    
+    enemies.push({ x: ex, y: ey, hp: hp, maxHp: hp, char: char, slow: 0 });
     setTimeout(spawnEnemy, Math.max(500, 2000 - score * 20));
 }
 
@@ -316,6 +321,7 @@ function update() {
     p.y = Math.max(0, Math.min(WORLD_SIZE, p.y + moveDir.y * speed));
     camera.x = p.x - canvas.width / 2;
     camera.y = p.y - canvas.height / 2;
+    
     if (Math.hypot(shootDir.x, shootDir.y) > 0.4 && Date.now() - lastShot > 350) {
         const angle = Math.atan2(shootDir.y, shootDir.x);
         const type = characters[p.char].type;
@@ -329,6 +335,7 @@ function update() {
         if (type === 'heavy') { fireBullet(angle-0.1, dmg); fireBullet(angle+0.1, dmg); }
         lastShot = Date.now();
     }
+    
     bullets.forEach(b => {
         b.x += b.vx; b.y += b.vy;
         enemies.forEach(e => {
@@ -337,14 +344,20 @@ function update() {
         if(Math.abs(b.x - p.x) > 1000 || Math.abs(b.y - p.y) > 1000) b.toRemove = true;
     });
     bullets = bullets.filter(b => !b.toRemove);
+    
     enemies.forEach(e => {
         const angle = Math.atan2(p.y - e.y, p.x - e.x);
-        const eSpeed = e.slow > Date.now() ? 0.7 : 2;
+        // СКОРОСТЬ ВРАГА С МЕНЬШЕ (0.8 вместо 2)
+        const baseSpeed = (e.char === 'C') ? 0.8 : 2;
+        const eSpeed = e.slow > Date.now() ? baseSpeed * 0.35 : baseSpeed;
+        
         e.x += Math.cos(angle) * eSpeed; e.y += Math.sin(angle) * eSpeed;
         if(Math.hypot(e.x - p.x, e.y - p.y) < 30) { if(!p.shield) p.hp -= 0.3; }
     });
+    
     score += enemies.filter(e => e.hp <= 0).length;
     enemies = enemies.filter(e => e.hp > 0);
+    
     const ready = (Date.now() - p.ultTimer >= ultCooldown);
     ultBtn.className = ready ? 'ready' : '';
     document.getElementById('hp-display').innerText = `HP: ${Math.ceil(p.hp)}`;
@@ -352,7 +365,6 @@ function update() {
     if(p.hp <= 0) { alert("Game Over! Score: " + score); location.reload(); }
 }
 
-let lastShot = 0;
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -362,18 +374,28 @@ function draw() {
         ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD_SIZE); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(WORLD_SIZE, i); ctx.stroke();
     }
+    
     enemies.forEach(e => {
         ctx.fillStyle = e.slow > Date.now() ? '#0af' : '#ff4444';
-        ctx.font = 'bold 35px Arial'; ctx.fillText(e.char, e.x - 12, e.y + 12);
-        ctx.fillStyle = '#300'; ctx.fillRect(e.x - 20, e.y - 35, 40, 4);
-        ctx.fillStyle = '#f00'; ctx.fillRect(e.x - 20, e.y - 35, (e.hp/150)*40, 4);
+        ctx.font = 'bold 35px Arial'; 
+        ctx.fillText(e.char, e.x - 12, e.y + 12);
+        
+        // Полоска здоровья (теперь учитывает maxHp)
+        ctx.fillStyle = '#300'; 
+        ctx.fillRect(e.x - 20, e.y - 35, 40, 4);
+        // Если враг С - полоска оранжевая
+        ctx.fillStyle = (e.char === 'C') ? '#ff8800' : '#f00'; 
+        ctx.fillRect(e.x - 20, e.y - 35, (e.hp / e.maxHp) * 40, 4);
     });
+    
     ctx.fillStyle = '#ffea00';
     bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.fill(); });
+    
     ctx.shadowBlur = p.shield ? 20 : 0; ctx.shadowColor = '#0ff';
     ctx.fillStyle = p.shield ? '#0ff' : 'white';
     ctx.font = 'bold 45px Arial'; ctx.fillText(p.char, p.x - 12, p.y + 15);
     ctx.shadowBlur = 0; ctx.restore();
+    
     update();
     requestAnimationFrame(draw);
 }
@@ -384,6 +406,7 @@ draw();
 </script>
 </body>
 </html>
+
 
 
 
